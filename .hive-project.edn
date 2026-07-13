@@ -1,0 +1,5 @@
+{:project-id "hive-yggdrasil-storage"
+ :parent "hive"
+ :description "Yggdrasil-backed versioned storage adapters (Datahike, Datalevin, Proximum) implementing yggdrasil.protocols, plus a workspace facade and coordinated-commit orchestration. Domain-agnostic: carries no hive-mcp dependency."
+ :language :clojure
+ :tags ["yggdrasil" "storage" "versioning" "snapshot-branch-merge" "datahike" "datalevin" "proximum" "devinculation"]}
