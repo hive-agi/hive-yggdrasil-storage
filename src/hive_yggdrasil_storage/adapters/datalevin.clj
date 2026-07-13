@@ -3,95 +3,39 @@
 ;; SPDX-License-Identifier: MIT
 
 (ns hive-yggdrasil-storage.adapters.datalevin
-  "Yggdrasil adapter for Datalevin LMDB stores — STORAGE-4.3.
+  "Yggdrasil adapter wrapping a Datalevin LMDB store — either a raw KV
+   store (open-kv result) or a Datalog connection.
 
-   Datalevin lacks a native Datalog-level time-travel API (no `as-of`,
-   no `since`), but its KV layer exposes LMDB-level snapshot rotation
-   plus a WAL watermark surface:
-
-     dl/create-snapshot!    rotate `current` / `previous` LMDB snapshots
-                            + update WAL snapshot-floor bookkeeping
-     dl/list-snapshots      enumerate snapshots with metadata
-     dl/txlog-watermarks    return WAL LSN watermarks
-     dl/open-tx-log         read WAL records from LSN range
-
-   This adapter maps Yggdrasil's Snapshotable onto those KV-level
-   primitives. Snapshots are addressed by the WAL LSN that floors them
-   (durable, monotonically increasing) — `snapshot-id` returns the
-   stringified LSN. `snapshot-meta` joins the LSN with `list-snapshots`
+   Implements the yggdrasil.protocols SystemIdentity, Snapshotable, and
+   Branchable on Datalevin's KV-level snapshot + WAL primitives. Snapshots
+   are addressed by the WAL LSN that floors them: `snapshot-id` returns the
+   stringified LSN and `snapshot-meta` joins it with `list-snapshots`
    metadata.
 
-   Branchable is implemented as a labelled-snapshot registry held in an
-   in-process atom: `branch!` records `{branch-kw → snapshot-id}`,
-   `checkout` switches the current-branch ref. Datalevin does NOT
-   support divergent writes on non-:main branches without a CoW LMDB
-   layer — branches here are read-tip labels, not independent history
-   forks. Mutations always land on `:main`; non-:main branches only
-   enable point-in-time read views once `as-of` is wired up.
-
-   ## Mapping table
-
-     Yggdrasil method              ←→  Datalevin
-     ─────────────────────────────────────────────────────────────────
-     SystemIdentity/system-id      → adapter-supplied
-     SystemIdentity/system-type    → :datalevin
-     SystemIdentity/capabilities   → static (snapshotable + branchable)
-     Snapshotable/snapshot-id      → str of WAL LSN watermark
-     Snapshotable/parent-ids       → set of prior LSNs from list-snapshots
-     Snapshotable/as-of            → ::unsupported (no Datalog as-of in
-                                     Datalevin 0.10.x — KV snapshot
-                                     re-open path is the follow-up)
-     Snapshotable/snapshot-meta    → list-snapshots entry by LSN
-     Branchable/branches           → keys of branches-atom
-     Branchable/current-branch     → @current-branch-atom
-     Branchable/branch!            → swap! branches-atom assoc
-     Branchable/delete-branch!     → swap! branches-atom dissoc
-     Branchable/checkout           → reset! current-branch-atom
-
-   ## Gaps (not implemented — see ::unsupported below)
-
-   - `Snapshotable/as-of` — Datalevin lacks a Datalog `as-of` op. The
-     KV `create-snapshot!` rotates physical LMDB snapshots that could
-     be re-opened at a separate path, but exposing that as a value-
-     semantic read-view requires a path-aware open-conn dance owned
-     by the workspace, not the adapter. Tracked for follow-up.
-   - `Mergeable` (merge!/conflicts/diff) — needs a Datalog-level
-     three-way diff engine. Out of scope for 4.3.
-   - `Overlayable` (overlay/advance!/...) — Datalevin has no live-fork
-     observer mode at the LMDB layer.
-   - `Graphable/Committable/GarbageCollectable/Addressable` —
-     deferrable; the workspace coordinator can opt-in per call site.
-
-   Calling an unsupported method throws `ex-info` with
-   `{:err :datalevin/unsupported-protocol-method ...}` so workspace
-   coordination surfaces the gap instead of silently no-op'ing.
-
-   ## Caveats
-
-   - `branches-atom` is **not durable** across JVM restarts; the
-     workspace coordinator owns durable branch persistence (konserve-
-     backed registry). Tests that exercise restart semantics need a
-     workspace-level fixture, not this adapter alone.
-   - `snapshot-id` is a stringified LSN — opaque to callers, but
-     comparable lexicographically when zero-padded. Adapter does NOT
-     pad; consumers who sort must coerce to long.
-   - `create-snapshot!` is a writer-side op; calling it concurrently
-     with active transactions is documented Datalevin behaviour
-     (rotation is atomic at the WAL boundary)."
+   Caller-facing behaviour:
+   - Unsupported methods — `as-of` and all of Mergeable (`merge!`,
+     `conflicts`, `diff`) — throw `ex-info` with
+     `{:err :datalevin/unsupported-protocol-method ...}` rather than
+     silently no-op'ing.
+   - Branches are read-tip labels over a labelled-snapshot registry, NOT
+     divergent history forks: `branch!` records `{branch-kw → snapshot-id}`
+     and `checkout` switches the current branch. Mutations always land on
+     `:main`.
+   - The branch registry and current-branch are in-process atoms, NOT
+     durable across JVM restarts.
+   - `snapshot-id` is a stringified WAL LSN; it is not zero-padded, so
+     consumers that sort must coerce to long."
   (:require [yggdrasil.protocols :as ygp]
             [datalevin.core :as dl]
             [taoensso.timbre :as log]))
 
 (def ^:const datalevin-capabilities
-  "Static capability advertisement for SystemIdentity. Lists the
-   yggdrasil protocols this adapter satisfies. Mergeable / Overlayable /
-   Graphable / Committable / GarbageCollectable / Addressable are absent
-   — see ns docstring gaps section."
+  "Static capability advertisement for SystemIdentity — the yggdrasil
+   protocols this adapter satisfies."
   #{:snapshotable :branchable})
 
 (defn- unsupported!
-  "Throw a structured error for protocol methods Datalevin doesn't model
-   (or that this adapter intentionally defers)."
+  "Throw a structured error for protocol methods Datalevin doesn't model."
   [op]
   (throw (ex-info (str "Datalevin adapter does not implement yggdrasil " op)
                   {:err     :datalevin/unsupported-protocol-method
@@ -101,10 +45,7 @@
 (defn- kv-handle
   "Extract the KV store from a handle. Accepts:
      - a raw KV store (open-kv result) — passed straight through
-     - a Datalog connection atom — pulls `:store` from `(dl/db conn)`
-   The KV-level snapshot/WAL ops (create-snapshot!, list-snapshots,
-   txlog-watermarks) all require the underlying KV handle, not the
-   Datalog conn."
+     - a Datalog connection atom — pulls `:store` from `(dl/db conn)`"
   [handle]
   (or (when (instance? clojure.lang.IDeref handle)
         (some-> handle dl/db :store))
@@ -112,8 +53,7 @@
 
 (defn- current-lsn
   "Read the current WAL committed-LSN watermark from the KV handle.
-   Returns nil if the store wasn't opened with `:wal? true` (Datalevin
-   guards txlog-watermarks behind that flag)."
+   Returns nil if the store wasn't opened with `:wal? true`."
   [handle]
   (try
     (some-> handle kv-handle dl/txlog-watermarks :committed-lsn)
@@ -221,10 +161,7 @@
                      extracts the KV layer for snapshot/WAL ops.
    `:system-name`  — string id used by SystemIdentity/system-id.
    `:initial-branches` — optional map of {kw → snapshot-id}; defaults to
-                     `{:main nil}` (snapshot-id resolves at first commit).
-
-   Branch-registry + current-branch are in-process; durable persistence
-   is the workspace coordinator's responsibility."
+                     `{:main nil}` (snapshot-id resolves at first commit)."
   [{:keys [handle system-name initial-branches]
     :or   {initial-branches {:main nil}}}]
   (when-not (and handle system-name)

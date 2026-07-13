@@ -3,62 +3,27 @@
 ;; SPDX-License-Identifier: MIT
 
 (ns hive-yggdrasil-storage.adapters.datahike
-  "Yggdrasil adapter for Datahike connections — STORAGE-4.2.
+  "Yggdrasil adapter wrapping a Datahike connection.
 
-   Datahike has first-class versioning (datahike.versioning + .writing)
-   plus konserve-backed branch refs. This adapter wraps a Datahike conn
-   and exposes Snapshotable, Branchable, and Mergeable directly onto
-   those native primitives — no shim layer needed.
+   Implements the yggdrasil.protocols SystemIdentity, Snapshotable,
+   Branchable, and Mergeable on a Datahike conn via datahike.versioning
+   plus konserve-backed branch refs.
 
-   Reference: clones-ref/yggdrasil/src/yggdrasil/adapters/datahike.clj
-   The ref impl additionally satisfies Graphable + GarbageCollectable +
-   commit-hook integration; STORAGE-4.2 ships only the three protocols
-   the kanban task requires. Extending the surface (history walking,
-   commit-graph, GC roots, native d/listen hooks) is a follow-up.
-
-   ## Mapping table
-
-     Yggdrasil method              ←→  Datahike
-     ─────────────────────────────────────────────────────────────
-     SystemIdentity/system-id      → adapter-supplied (or auto-derived
-                                     from the store config :id)
-     SystemIdentity/system-type    → :datahike
-     SystemIdentity/capabilities   → static set
-     Snapshotable/snapshot-id      → str of (commit-id-of db)
-     Snapshotable/parent-ids       → set of str (parent-ids-of db)
-     Snapshotable/as-of            → dv/commit-as-db store uuid
-     Snapshotable/snapshot-meta    → :timestamp / :parent-ids / :branch
-     Branchable/branches           → konserve `:branches` key
-     Branchable/current-branch     → (-> @conn :config :branch)
-     Branchable/branch!            → dv/branch!
-     Branchable/delete-branch!     → dv/delete-branch!
-     Branchable/checkout           → d/connect on cloned config
-     Mergeable/merge!              → dv/merge! with computed tx-data
-     Mergeable/conflicts           → [] (Datahike merges are additive)
-     Mergeable/diff                → compute-branch-diff both ways
-
-   ## Caveats
-
+   Caller-facing behaviour:
    - `checkout` returns a NEW DatahikeSystem wrapping a freshly-opened
-     connection on the named branch. The original system is unchanged.
-     Callers are responsible for closing the new conn when done.
-   - `merge!` defaults to a structural diff between source and target
-     when `opts` doesn't carry `:tx-data`. The tx-meta is forwarded
-     unchanged so callers can track provenance.
-   - `diff` returns a plain map shape; the reference impl uses
-     `yggdrasil.types/DatahikeDiff` records for protocol-level
-     interchange. If the workspace coordinator expects records, swap
-     the constructor here without changing the public surface."
+     connection on the named branch; the original system is unchanged and
+     the caller owns closing the new connection.
+   - `merge!` uses a structural diff between source and target when `opts`
+     carries no `:tx-data`; `:tx-meta` is forwarded unchanged.
+   - `diff` returns a plain map."
   (:require [yggdrasil.protocols :as ygp]
             [konserve.core :as k]
             [datahike.api :as d]
             [datahike.versioning :as dv]))
 
 (def ^:const datahike-capabilities
-  "Static capability advertisement for SystemIdentity. Ships
-   Snapshotable + Branchable + Mergeable; Graphable / Overlayable /
-   Watchable / Committable / GarbageCollectable / Addressable are
-   deferred per STORAGE-4.2 scope."
+  "Static capability advertisement for SystemIdentity — the yggdrasil
+   protocols this adapter satisfies."
   #{:snapshotable :branchable :mergeable})
 
 ;; ---------------------------------------------------------------------------
@@ -82,8 +47,7 @@
 
 (defn- compute-branch-diff
   "Return tx-data adding the datoms in source-db that are absent from
-   target-db. Mirrors the reference impl — the Datalog query excludes
-   :db/txInstant so transaction timestamps don't pollute the diff."
+   target-db. Transaction-timestamp datoms (`:db/txInstant`) are excluded."
   [source-db target-db]
   (let [diff (d/q '[:find ?e ?a ?v
                     :in $ $2

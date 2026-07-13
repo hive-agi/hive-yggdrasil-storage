@@ -3,78 +3,32 @@
 ;; SPDX-License-Identifier: MIT
 
 (ns hive-yggdrasil-storage.adapters.proximum
-  "Yggdrasil adapter for Proximum HNSW vector indices — STORAGE-4.4.
+  "Yggdrasil adapter extending the yggdrasil protocols onto Proximum's
+   `proximum.hnsw.HnswIndex`, wrapped in a ProximumSystem record.
 
-   Proximum already exposes a near-isomorphic API to the yggdrasil
-   protocol surface: `branch!` / `branches` / `delete-branch!` /
-   `get-commit-id` / `parents` / `history` / `ancestors` / `ancestor?` /
-   `commit-graph` / `commit-info` / `common-ancestor` / `sync!` / `gc!`.
-   Loading this ns extends those yggdrasil protocols onto Proximum's
-   concrete `proximum.hnsw.HnswIndex` record so the workspace can manage
-   vector indices as first-class systems alongside Datahike/Datalevin.
+   Implements the yggdrasil.protocols SystemIdentity, Snapshotable,
+   Branchable, Graphable, Committable, and GarbageCollectable over
+   Proximum's versioning fns. Mergeable methods throw unsupported.
 
-   ## Mapping table
-
-     Yggdrasil method      ←→  Proximum fn
-     ───────────────────────────────────────────────────────────
-     SystemIdentity/system-id      → adapter wraps + carries id
-     SystemIdentity/system-type    → :proximum
-     SystemIdentity/capabilities   → static set
-     Snapshotable/snapshot-id      → prox/get-commit-id
-     Snapshotable/parent-ids       → prox/parents
-     Snapshotable/as-of            → prox/load-commit (needs store-config)
-     Snapshotable/snapshot-meta    → prox/commit-info
-     Branchable/branches           → prox/branches
-     Branchable/current-branch     → prox/get-branch
-     Branchable/branch!            → prox/branch!
-     Branchable/delete-branch!     → prox/delete-branch!
-     Branchable/checkout           → prox/load (re-load on the named branch)
-     Graphable/history             → prox/history
-     Graphable/ancestors           → prox/ancestors
-     Graphable/ancestor?           → prox/ancestor?
-     Graphable/common-ancestor     → prox/common-ancestor
-     Graphable/commit-graph        → prox/commit-graph
-     Graphable/commit-info         → prox/commit-info
-     Committable/commit!           → prox/sync! + blocking <!! on channel
-     GarbageCollectable/gc-roots   → derived from prox/branches (live tips)
-     GarbageCollectable/gc-sweep!  → prox/gc! with caller-supplied cutoff
-
-   ## Gaps (not implemented — see ::unsupported below)
-
-   - `Mergeable` (merge!/conflicts/diff) — HNSW vector indices have no
-     three-way merge semantics. Vectors don't conflict structurally; an
-     embedding model swap is not a 'merge'.
-   - `Overlayable` (overlay/advance!/...) — Proximum lacks live-fork
-     observation modes. `fork` exists but doesn't surface the layered
-     write-tracking yggdrasil overlays expect.
-   - `Addressable/working-path` — vector indices aren't filesystem-y in
-     the same sense as a Git repo or ZFS dataset.
-
-   Calling an unsupported method on a Proximum-backed system throws
-   `ex-info` with `{:err :proximum/unsupported-protocol-method ...}` so
-   workspace-level coordination surfaces the gap explicitly rather than
-   silently no-op'ing.
-
-   ## Caveats
-
-   - `commit!` blocks the calling thread on the sync! channel via `<!!`.
-     Inside core.async go-blocks use `prox/sync!` directly with `<!`.
-   - `gc-sweep!` requires a caller to supply the `:remove-before` date
-     since Proximum's `gc!` takes a cutoff. The adapter defaults to
-     `(java.util.Date.)` when called via the no-arg yggdrasil signature
-     — caveat: that wipes everything older than NOW.
-   - `as-of` requires the store-config (Proximum's `load-commit` is a
-     top-level fn, not an instance method). The adapter carries
-     `:store-config` on the wrapping record so this works."
+   Caller-facing behaviour:
+   - Unsupported methods — Mergeable (`merge!`, `conflicts`, `diff`) —
+     throw `ex-info` with
+     `{:err :proximum/unsupported-protocol-method ...}` rather than
+     silently no-op'ing.
+   - `commit!` blocks the calling thread on the `sync!` channel via `<!!`;
+     inside core.async go-blocks use `prox/sync!` directly with `<!`.
+   - `gc-sweep!` called via the no-arg yggdrasil signature defaults the
+     cutoff to `(java.util.Date.)`, which wipes everything older than NOW.
+   - `as-of` needs the store-config; the wrapping record carries
+     `:store-config` for it."
   (:require [yggdrasil.protocols :as ygp]
             [proximum.core :as prox]
             [clojure.core.async :as async]
             [taoensso.timbre :as log]))
 
 (def ^:const proximum-capabilities
-  "Static capability advertisement for the SystemIdentity protocol. Lists
-   the yggdrasil protocols this adapter satisfies. Mergeable/Overlayable/
-   Addressable are intentionally absent — see ns docstring gaps section."
+  "Static capability advertisement for the SystemIdentity protocol — the
+   yggdrasil protocols this adapter satisfies."
   #{:snapshotable :branchable :graphable :committable :gc-collectable})
 
 (defn- unsupported!
@@ -144,10 +98,7 @@
    yggdrasil protocols. `store-config` is the Proximum store-config map
    (`{:backend :file :path \"...\" :id #uuid \"...\"}`) used for
    load/load-commit. `system-name` identifies this system inside the
-   yggdrasil workspace.
-
-   The index is held in an atom so branch! / checkout / commit! can swap
-   in updated immutable values returned by Proximum's persistent ops."
+   yggdrasil workspace."
   [{:keys [index store-config system-name]}]
   (when-not (and index store-config system-name)
     (throw (ex-info "create-system requires :index, :store-config, :system-name"
