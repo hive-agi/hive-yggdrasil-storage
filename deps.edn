@@ -13,7 +13,7 @@
         org.replikativ/konserve {:mvn/version "0.9.352"}
 
         ;; hive-dsl — Result/rescue DSL (workspace late-bind seam).
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.2"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.5"}
 
         ;; malli — value-object schemas at the coordination seams (schema ns).
         metosin/malli {:mvn/version "0.20.1"}
@@ -27,8 +27,8 @@
                        ;; schema-driven free coverage: a malli schema drives
                        ;; property + mutation facets with no hand-written
                        ;; generator/oracle/mutant (hive-schemas.test).
-                       io.github.hive-agi/hive-test    {:mvn/version "0.3.6"}
-                       io.github.hive-agi/hive-schemas {:mvn/version "0.1.5"}}
+                       io.github.hive-agi/hive-test    {:mvn/version "0.3.8"}
+                       io.github.hive-agi/hive-schemas {:mvn/version "0.1.6"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test}
 
