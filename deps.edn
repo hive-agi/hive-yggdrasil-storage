@@ -13,7 +13,7 @@
         org.replikativ/konserve {:mvn/version "0.9.352"}
 
         ;; hive-dsl — Result/rescue DSL (workspace late-bind seam).
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.7"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.8"}
 
         ;; malli — value-object schemas at the coordination seams (schema ns).
         metosin/malli {:mvn/version "0.20.1"}
