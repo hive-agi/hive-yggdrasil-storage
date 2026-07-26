@@ -24,16 +24,20 @@
  {:test {:extra-paths ["test"]
          :extra-deps  {io.github.cognitect-labs/test-runner
                        {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+                       ;; Malli regex-schema generators (Sha256 fixtures).
+                       com.gfredericks/test.chuck {:mvn/version "0.2.15"}
                        ;; schema-driven free coverage: a malli schema drives
                        ;; property + mutation facets with no hand-written
                        ;; generator/oracle/mutant (hive-schemas.test).
                        io.github.hive-agi/hive-test    {:mvn/version "0.3.10"}
                        io.github.hive-agi/hive-schemas {:mvn/version "0.1.10"}}
          :main-opts ["-m" "cognitect.test-runner"]
-         :exec-fn cognitect.test-runner.api/test}
+         :exec-fn cognitect.test-runner.api/test
+         :jvm-opts ["--add-modules=jdk.incubator.vector"]}
 
   ;; Clojars publishing. version = the repo's VERSION file (see build.clj).
   :build
   {:deps {io.github.clojure/tools.build {:mvn/version "0.10.9"}
           slipset/deps-deploy {:mvn/version "0.2.2"}}
-   :ns-default build}}}
+   :ns-default build}
+  :dev {:jvm-opts ["--add-modules=jdk.incubator.vector"]}}}
