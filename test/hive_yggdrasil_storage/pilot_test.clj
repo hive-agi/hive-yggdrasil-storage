@@ -32,10 +32,12 @@
   {:in  schema/RawAdapterSpec
    :out [:maybe schema/AdapterKind]
    :rel (fn [spec out]
-          (= out (let [{:keys [kind handle system-name]} spec]
+          (= out (let [{:keys [kind handle system-name store-config]} spec]
                    (when (and (some? handle)
-                              (string? system-name) (pos? (count system-name))
-                              (contains? #{:datahike :datalevin} kind))
+                              (string? system-name)
+                              (pos? (count system-name))
+                              (contains? #{:datahike :datalevin :proximum} kind)
+                              (or (not= :proximum kind) (map? store-config)))
                      kind))))
    :mutation false
    :num-tests 200})
@@ -86,28 +88,41 @@
     (are [spec expected] (= expected (pilot/buildable-kind spec))
       {:kind :datahike  :handle :h :system-name "s"} :datahike
       {:kind :datalevin :handle :h :system-name "s"} :datalevin
+      {:kind :proximum  :handle :h :system-name "s"
+       :store-config {:backend :memory}} :proximum
       {:kind :proximum  :handle :h :system-name "s"} nil
+      {:kind :proximum  :handle :h :system-name "s" :store-config :bad} nil
       {:kind :datahike  :handle nil :system-name "s"} nil
       {:kind :datahike  :handle :h :system-name ""}  nil
       {:kind :datahike  :handle :h :system-name nil} nil
       {:handle :h :system-name "s"}                  nil)))
 
 (deftest build-adapter-dip-injection
-  (testing "the constructor registry is the DIP swap point — no real store"
+  (testing "constructor registry is DIP swap point — no real store"
     (let [ctors {:datahike  (fn [spec] [:built :datahike (:system-name spec)])
-                 :datalevin (fn [spec] [:built :datalevin (:system-name spec)])}]
+                 :datalevin (fn [spec] [:built :datalevin (:system-name spec)])
+                 :proximum  (fn [spec] [:built :proximum (:store-config spec)])}]
       (is (= [:built :datahike "S"]
-             (pilot/build-adapter ctors :slot {:kind :datahike :handle :h :system-name "S"}))
-          "valid spec dispatches to the injected constructor")
-      (is (nil? (pilot/build-adapter ctors :slot {:kind :unknown :handle :h :system-name "S"}))
-          "unknown kind -> nil")
-      (is (nil? (pilot/build-adapter ctors :slot {:kind :datahike :handle nil :system-name "S"}))
-          "missing handle -> nil")
-      (is (nil? (pilot/build-adapter ctors :slot {:kind :datahike :handle :h :system-name ""}))
-          "blank system-name -> nil")
+             (pilot/build-adapter ctors :slot
+                                  {:kind :datahike :handle :h :system-name "S"})))
+      (is (= [:built :proximum {:backend :memory}]
+             (pilot/build-adapter ctors :semantic
+                                  {:kind :proximum
+                                   :handle :index
+                                   :system-name "semantic"
+                                   :store-config {:backend :memory}})))
+      (is (nil? (pilot/build-adapter ctors :slot
+                                     {:kind :unknown :handle :h :system-name "S"})))
+      (is (nil? (pilot/build-adapter ctors :slot
+                                     {:kind :datahike :handle nil :system-name "S"})))
+      (is (nil? (pilot/build-adapter ctors :slot
+                                     {:kind :datahike :handle :h :system-name ""})))
+      (is (nil? (pilot/build-adapter ctors :semantic
+                                     {:kind :proximum :handle :index
+                                      :system-name "semantic"})))
       (is (nil? (pilot/build-adapter {:datahike (:datahike ctors)} :slot
-                                     {:kind :datalevin :handle :h :system-name "S"}))
-          "kind with no registered constructor -> nil"))))
+                                     {:kind :datalevin :handle :h
+                                      :system-name "S"}))))))
 
 (deftest build-commit-fn-map-keys
   (let [f       (fn [_] :snap)

@@ -3,31 +3,19 @@
 ;; SPDX-License-Identifier: MIT
 
 (ns hive-yggdrasil-storage.schema
-  "Malli value-objects for the yggdrasil-storage coordination seams.
+  "Malli value objects for yggdrasil-storage coordination seams.
 
-   Each schema is a plain malli form, usable both as an m/=> contract and
-   as a hive-schemas.test :in/:out driver.
-
-     AdapterKind     :datahike | :datalevin
-     NonBlankString  string, length >= 1
-     LingBranch      qualified keyword in the \"ling\" namespace
-     RawAdapterSpec  permissive host-boundary spec
-     AdapterSpec     validated spec {:kind :handle :system-name}
-     SlotSpecs       {slot-key AdapterSpec}
-     BranchInput     input to ok-branch-result / unsupported-merge-result
-     BranchResult    per-adapter branch! fan-out result
-     MergeResult     per-adapter merge! fan-out result
-     DegradedMode    the :degraded/* keywords the pilot returns
-     CommitEntry     {:system-id :commit-fn}
-     CommitEntries   [CommitEntry]
-     CommitFnMap     {system-id commit-fn}"
+   Schemas are plain Malli forms usable as contracts and hive-schemas.test
+   generators. AdapterKind covers :datahike, :datalevin, and :proximum.
+   AdapterSpec accepts optional :store-config; pilot/buildable-kind requires
+   that map specifically for Proximum."
   (:require [malli.core :as m]))
 
-(def AdapterKind [:enum :datahike :datalevin])
+(def AdapterKind [:enum :datahike :datalevin :proximum])
 
 (def adapter-kinds
   "The AdapterKind enum as a set — the dispatch domain for build-adapter."
-  #{:datahike :datalevin})
+  #{:datahike :datalevin :proximum})
 
 (def NonBlankString [:string {:min 1}])
 
@@ -38,13 +26,15 @@
   [:map
    [:kind :keyword]
    [:handle :any]
-   [:system-name [:maybe :string]]])
+   [:system-name [:maybe :string]]
+   [:store-config {:optional true} [:maybe :map]]])
 
 (def AdapterSpec
   [:map {:closed false}
    [:kind AdapterKind]
    [:handle :any]
-   [:system-name NonBlankString]])
+   [:system-name NonBlankString]
+   [:store-config {:optional true} [:maybe :map]]])
 
 (def SlotSpecs [:map-of :keyword AdapterSpec])
 

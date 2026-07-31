@@ -16,7 +16,8 @@
             [yggdrasil.protocols :as ygp]
             [taoensso.timbre :as log]
             [hive-yggdrasil-storage.schema :as schema]
-            [malli.core :as m]))
+            [malli.core :as m]
+            [hive-yggdrasil-storage.adapters.proximum :as aprox]))
 
 (defonce ^:private registered-systems
   ^{:doc "Atom of {slot-key → ygp-protocol-satisfying-record}. Populated by
@@ -27,10 +28,19 @@
   "Adapter :kind -> constructor over an AdapterSpec. DIP/OCP swap point:
    a new backend registers a constructor here; build-adapter reads this
    map and needs no edit."
-  {:datahike  (fn datahike-ctor  [{:keys [handle system-name]}]
-                (adh/create-system {:conn handle :system-name system-name}))
-   :datalevin (fn datalevin-ctor [{:keys [handle system-name]}]
-                (adl/create-system {:handle handle :system-name system-name}))})
+  {:datahike
+   (fn datahike-ctor [{:keys [handle system-name]}]
+     (adh/create-system {:conn handle :system-name system-name}))
+
+   :datalevin
+   (fn datalevin-ctor [{:keys [handle system-name]}]
+     (adl/create-system {:handle handle :system-name system-name}))
+
+   :proximum
+   (fn proximum-ctor [{:keys [handle store-config system-name]}]
+     (aprox/create-system {:index handle
+                           :store-config store-config
+                           :system-name system-name}))})
 
 (defn registered
   "Return the current registry snapshot — read-only. Useful for
@@ -40,11 +50,13 @@
 
 (defn buildable-kind
   "The adapter kind to build for `spec`, or nil when `spec` is not
-   buildable (unknown :kind, or missing :handle / blank :system-name). Pure."
-  [{:keys [kind handle system-name]}]
+   buildable. Proximum additionally needs its durable :store-config. Pure."
+  [{:keys [kind handle system-name store-config]}]
   (when (and (some? handle)
-             (string? system-name) (pos? (count system-name))
-             (contains? schema/adapter-kinds kind))
+             (string? system-name)
+             (pos? (count system-name))
+             (contains? schema/adapter-kinds kind)
+             (or (not= :proximum kind) (map? store-config)))
     kind))
 
 (defn build-adapter
