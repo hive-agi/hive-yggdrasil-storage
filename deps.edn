@@ -7,13 +7,13 @@
 
         ;; Storage backends the adapters wrap. Published coords (no forks) so the
         ;; jar resolves standalone; a host may override datalevin with a fork.
-        org.replikativ/datahike {:mvn/version "0.8.1719"}
+        org.replikativ/datahike {:mvn/version "0.8.1784"}
         datalevin/datalevin {:mvn/version "0.10.18"}
         org.replikativ/proximum {:mvn/version "0.1.24"}
-        org.replikativ/konserve {:mvn/version "0.9.352"}
+        org.replikativ/konserve {:mvn/version "0.9.372"}
 
         ;; hive-dsl — Result/rescue DSL (workspace late-bind seam).
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.8"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.10"}
 
         ;; malli — value-object schemas at the coordination seams (schema ns).
         metosin/malli {:mvn/version "0.20.1"}
@@ -29,8 +29,8 @@
                        ;; schema-driven free coverage: a malli schema drives
                        ;; property + mutation facets with no hand-written
                        ;; generator/oracle/mutant (hive-schemas.test).
-                       io.github.hive-agi/hive-test    {:mvn/version "0.3.10"}
-                       io.github.hive-agi/hive-schemas {:mvn/version "0.1.10"}}
+                       io.github.hive-agi/hive-test    {:mvn/version "0.3.12"}
+                       io.github.hive-agi/hive-schemas {:mvn/version "0.1.11"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test
          :jvm-opts ["--add-modules=jdk.incubator.vector"]}
