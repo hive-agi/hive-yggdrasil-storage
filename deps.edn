@@ -7,13 +7,13 @@
 
         ;; Storage backends the adapters wrap. Published coords (no forks) so the
         ;; jar resolves standalone; a host may override datalevin with a fork.
-        org.replikativ/datahike {:mvn/version "0.8.1784"}
+        org.replikativ/datahike {:mvn/version "0.8.1788"}
         datalevin/datalevin {:mvn/version "0.10.18"}
-        org.replikativ/proximum {:mvn/version "0.1.24"}
-        org.replikativ/konserve {:mvn/version "0.9.372"}
+        org.replikativ/proximum {:mvn/version "0.1.35"}
+        org.replikativ/konserve {:mvn/version "0.9.375"}
 
         ;; hive-dsl — Result/rescue DSL (workspace late-bind seam).
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.10"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.14"}
 
         ;; malli — value-object schemas at the coordination seams (schema ns).
         metosin/malli {:mvn/version "0.20.1"}
@@ -30,13 +30,13 @@
                        ;; property + mutation facets with no hand-written
                        ;; generator/oracle/mutant (hive-schemas.test).
                        io.github.hive-agi/hive-test    {:mvn/version "0.3.12"}
-                       io.github.hive-agi/hive-schemas {:mvn/version "0.1.11"}}
+                       io.github.hive-agi/hive-schemas {:mvn/version "0.1.13"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test
          :jvm-opts ["--add-modules=jdk.incubator.vector"]}
 
   ;; Clojars publishing. version = the repo's VERSION file.
   :build
-  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.0"}}
+  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.8"}}
    :ns-default hive-build.api}
   :dev {:jvm-opts ["--add-modules=jdk.incubator.vector"]}}}
