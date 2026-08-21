@@ -1,5 +1,5 @@
 {:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.12.1"}
+ :deps {org.clojure/clojure {:mvn/version "1.12.5"}
         org.clojure/core.async {:mvn/version "1.7.701"}
 
         ;; yggdrasil — HLC-coordinated multi-store versioning (snapshot/branch/merge).
