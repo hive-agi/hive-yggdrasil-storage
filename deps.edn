@@ -1,9 +1,9 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.5"}
-        org.clojure/core.async {:mvn/version "1.7.701"}
+        org.clojure/core.async {:mvn/version "1.9.865"}
 
         ;; yggdrasil — HLC-coordinated multi-store versioning (snapshot/branch/merge).
-        org.replikativ/yggdrasil {:mvn/version "0.2.23"}
+        org.replikativ/yggdrasil {:mvn/version "0.3.40"}
 
         ;; Storage backends the adapters wrap. Published coords (no forks) so the
         ;; jar resolves standalone; a host may override datalevin with a fork.
