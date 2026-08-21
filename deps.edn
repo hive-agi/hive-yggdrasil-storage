@@ -8,7 +8,7 @@
         ;; Storage backends the adapters wrap. Published coords (no forks) so the
         ;; jar resolves standalone; a host may override datalevin with a fork.
         org.replikativ/datahike {:mvn/version "0.8.1788"}
-        datalevin/datalevin {:mvn/version "0.10.18"}
+        datalevin/datalevin {:mvn/version "1.0.2"}
         org.replikativ/proximum {:mvn/version "0.1.35"}
         org.replikativ/konserve {:mvn/version "0.9.375"}
 
