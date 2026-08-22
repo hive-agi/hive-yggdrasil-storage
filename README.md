@@ -1,5 +1,14 @@
 # hive-yggdrasil-storage
 
+<!-- hive-badges -->
+
+[![Clojars Project](https://img.shields.io/clojars/v/io.github.hive-agi/hive-yggdrasil-storage.svg)](https://clojars.org/io.github.hive-agi/hive-yggdrasil-storage)
+[![cljdoc](https://cljdoc.org/badge/io.github.hive-agi/hive-yggdrasil-storage)](https://cljdoc.org/d/io.github.hive-agi/hive-yggdrasil-storage/CURRENT)
+[![release](https://github.com/hive-agi/hive-yggdrasil-storage/actions/workflows/release.yml/badge.svg)](https://github.com/hive-agi/hive-yggdrasil-storage/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+<!-- /hive-badges -->
+
 Yggdrasil-backed **versioned storage** for the hive ecosystem — snapshot /
 branch / merge across heterogeneous backends under a shared Hybrid Logical
 Clock.
