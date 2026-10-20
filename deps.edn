@@ -29,7 +29,7 @@
                        ;; schema-driven free coverage: a malli schema drives
                        ;; property + mutation facets with no hand-written
                        ;; generator/oracle/mutant (hive-schemas.test).
-                       io.github.hive-agi/hive-test    {:mvn/version "0.4.11"}
+                       io.github.hive-agi/hive-test    {:mvn/version "0.5.0"}
                        io.github.hive-agi/hive-schemas {:mvn/version "0.1.40"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test
