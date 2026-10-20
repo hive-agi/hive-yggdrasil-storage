@@ -3,20 +3,20 @@
         org.clojure/core.async {:mvn/version "1.9.865"}
 
         ;; yggdrasil — HLC-coordinated multi-store versioning (snapshot/branch/merge).
-        org.replikativ/yggdrasil {:mvn/version "0.3.46"}
+        org.replikativ/yggdrasil {:mvn/version "0.3.50"}
 
         ;; Storage backends the adapters wrap. Published coords (no forks) so the
         ;; jar resolves standalone; a host may override datalevin with a fork.
-        org.replikativ/datahike {:mvn/version "0.8.1903"}
-        datalevin/datalevin {:mvn/version "1.1.0"}
+        org.replikativ/datahike {:mvn/version "0.8.1910"}
+        datalevin/datalevin {:mvn/version "1.2.5"}
         org.replikativ/proximum {:mvn/version "0.1.38"}
-        org.replikativ/konserve {:mvn/version "0.9.398"}
+        org.replikativ/konserve {:mvn/version "0.9.399"}
 
         ;; hive-dsl — Result/rescue DSL (workspace late-bind seam).
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.36"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.37"}
 
         ;; malli — value-object schemas at the coordination seams (schema ns).
-        metosin/malli {:mvn/version "0.20.2"}
+        metosin/malli {:mvn/version "0.20.3"}
 
         com.taoensso/timbre {:mvn/version "6.8.0"}}
 
@@ -29,7 +29,7 @@
                        ;; schema-driven free coverage: a malli schema drives
                        ;; property + mutation facets with no hand-written
                        ;; generator/oracle/mutant (hive-schemas.test).
-                       io.github.hive-agi/hive-test    {:mvn/version "0.4.11"}
+                       io.github.hive-agi/hive-test    {:mvn/version "0.5.0"}
                        io.github.hive-agi/hive-schemas {:mvn/version "0.1.40"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test
